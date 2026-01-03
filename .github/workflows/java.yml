@@ -1,6 +1,5 @@
 name: Java Maven CI
 
-# Trigger the workflow on pushes or pull requests to master
 on:
   push:
     branches: [ "master" ]
@@ -10,35 +9,50 @@ on:
 jobs:
   build:
 
-    # Use Ubuntu runner for Maven/Java builds
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
 
+    # PostgreSQL service for Spring Boot tests
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-    # 1. Checkout your repository code
-    - name: Checkout code
-      uses: actions/checkout@v4
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    # 2. Setup Java (JDK 17)
-    - name: Set up Java 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      # Step 2: Set up Java
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    # 3. Build project with Maven (including tests)
-    - name: Build with Maven
-      run: mvn clean package --batch-mode
+      # Step 3: Build & test project
+      - name: Build & Test with Maven
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: postgres
+        run: mvn clean package --batch-mode
 
-    # 4. Optional: Run tests separately for CI clarity
-    - name: Run tests
-      run: mvn test --batch-mode
-
-    # 5. Publish the compiled JAR as an artifact
-    - name: Publish JAR
-      uses: actions/upload-artifact@v4
-      with:
-        name: java-app
-        path: target/*.jar
+      # Step 4: Publish artifact
+      - name: Publish Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-app
+          path: target/*.jar
